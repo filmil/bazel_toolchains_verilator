@@ -13,7 +13,7 @@ name: release
 
 on:
   push:
-    tags: ["v*", "verilator-*"]
+    tags: ["v[0-9]*", "verilator-*"]
   workflow_dispatch:
     inputs:
       verilator_version:
