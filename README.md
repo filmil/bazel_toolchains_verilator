@@ -1,7 +1,17 @@
 # bazel_toolchains_verilator
 
+[![release](https://github.com/filmil/bazel_toolchains_verilator/actions/workflows/release.yml/badge.svg)](https://github.com/filmil/bazel_toolchains_verilator/actions/workflows/release.yml)
+[![registry](https://github.com/filmil/bazel_toolchains_verilator/actions/workflows/publish.yml/badge.svg)](https://github.com/filmil/bazel_toolchains_verilator/actions/workflows/publish.yml)
+[![latest](https://img.shields.io/github/v/release/filmil/bazel_toolchains_verilator?sort=semver&display_name=tag&label=latest)](https://github.com/filmil/bazel_toolchains_verilator/releases/latest)
+
 A Verilator toolchain from a prebuilt binary, so that a build which
 needs Verilator downloads one instead of compiling one.
+
+The first badge is the build that produces the binary, and it is the
+one to look at: if it is red, the binary this module serves is the one
+from the release before. The second is the publication of the module
+to the registry, which is a separate thing from the binary and fails
+separately.
 
 ## Why
 
