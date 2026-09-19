@@ -14,7 +14,7 @@ VERILATOR_BINARIES = {
     "5.046": {
         "linux_x86_64": struct(
             url = "https://github.com/filmil/bazel_toolchains_verilator/releases/download/verilator-5.046/verilator-5.046-linux-amd64.tar.gz",
-            sha256 = "43090f625ba2f7227814a22d7af0ebfddefb5b620db849f75cd1fb4e7d8ece81",
+            sha256 = "2234af808104af6f1c43d774966815d43bf131f946fd868d0e01045e9b626ca8",
         ),
     },
 }
