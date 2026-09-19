@@ -2,11 +2,14 @@
 name: "Publish to my Bazel registry"
 
 # A module tag publishes the module. The binary tags, `verilator-*`,
-# do not come here: they carry an artifact rather than a module
-# version.
+# do not: they carry an artifact rather than a module version.
+#
+# The trigger is the release rather than the tag push. Both workflows
+# start on a tag, and this one used to beat the other to it and fail
+# looking for a source archive that had not been uploaded yet.
 on:
-  push:
-    tags: ["v[0-9]*"]
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       tag_name:
@@ -16,9 +19,14 @@ on:
 
 jobs:
   publish:
+    # A binary release is not a module release.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.release.tag_name, 'v0') ||
+      startsWith(github.event.release.tag_name, 'v1')
     uses: "bazel-contrib/publish-to-bcr/.github/workflows/publish.yaml@v1.0.0"
     with:
-      tag_name: ${{ inputs.tag_name || github.ref_name }}
+      tag_name: ${{ inputs.tag_name || github.event.release.tag_name }}
       # Not the central registry: this module hands out a binary built
       # from someone else's source, which is a thing to keep close to
       # home rather than to offer the world.
