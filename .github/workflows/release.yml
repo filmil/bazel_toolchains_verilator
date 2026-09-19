@@ -54,10 +54,17 @@ jobs:
           echo "file=${out}" >> "${GITHUB_OUTPUT}"
           echo "sha256=$(sha256sum "${out}" | cut -d' ' -f1)" >> "${GITHUB_OUTPUT}"
 
-      - name: Say what the binary is, so a failure is not silent
+      # The tarball is listed to a file rather than piped to `head`:
+      # `head` closes the pipe, `tar` takes the SIGPIPE, and
+      # `pipefail` reports a build failure for a listing that worked.
+      - name: Say what is in the tarball, and what the binary is
         run: |
           set -o errexit -o nounset -o pipefail
-          tar tzf "${{ steps.name.outputs.file }}" | head
+          tar tzf "${{ steps.name.outputs.file }}" > /tmp/contents.txt
+          echo "$(wc -l < /tmp/contents.txt) entries:"
+          head -20 /tmp/contents.txt
+          grep -q '^bin/verilator$' /tmp/contents.txt
+          grep -q '^include/verilated.cpp$' /tmp/contents.txt
           bazel run //package:verilator_version
 
       - name: The module's own source, which the registry points at
