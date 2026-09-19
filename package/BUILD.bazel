@@ -1,0 +1,79 @@
+# The release artifact: Verilator, built once, with the include tree it
+# reads at run time.
+#
+# Everything here is behind the `verilator` development dependency, so
+# it is built by this repository's release workflow and by nobody who
+# depends on this module. That is the point of the project: a consumer
+# gets the binary, never the source.
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+package(default_visibility = ["//visibility:private"])
+
+# The driver binary, under the name a consumer expects to find.
+genrule(
+    name = "verilator_bin",
+    srcs = ["@verilator//:verilator"],
+    outs = ["bin/verilator"],
+    cmd = "cp $(location @verilator//:verilator) $@ && chmod +x $@",
+)
+
+# Verilator writes C++ that includes these, so they travel with it.
+# `strip_prefix` keeps the tree rooted at `include/`, which is where
+# the generated BUILD file globs for it.
+# `pkg_tar`'s `strip_prefix` does not reach into another repository's
+# path, so the tree is copied to a plain directory first and tarred
+# from there. Verilator finds its include tree beside its binary, so
+# the layout in the tarball is the layout it will be unpacked into.
+genrule(
+    name = "include_tree",
+    srcs = ["@verilator//:verilator_includes"],
+    outs = ["include.tar"],
+    cmd = """
+    set -o errexit -o nounset -o pipefail
+    stage="$$(mktemp -d)"
+    for f in $(locations @verilator//:verilator_includes); do
+      case "$$f" in
+        */include/*) rel="$${f#*/include/}" ;;
+        *) continue ;;
+      esac
+      mkdir -p "$$stage/$$(dirname "$$rel")"
+      cp "$$f" "$$stage/$$rel"
+    done
+    tar cf $@ -C "$$stage" .
+    rm -rf "$$stage"
+    """,
+)
+
+pkg_tar(
+    name = "includes",
+    package_dir = "include",
+    deps = [":include_tree"],
+)
+
+pkg_tar(
+    name = "binary",
+    srcs = [":verilator_bin"],
+    package_dir = "bin",
+    strip_prefix = "bin",
+)
+
+# What the release workflow uploads.
+pkg_tar(
+    name = "dist",
+    extension = "tar.gz",
+    deps = [
+        ":binary",
+        ":includes",
+    ],
+)
+
+# A smoke test for the release workflow: the packaged binary runs and
+# says which Verilator it is. A tarball whose binary cannot run is the
+# failure worth catching before a release, not after.
+sh_binary(
+    name = "verilator_version",
+    srcs = ["version.sh"],
+    data = ["@verilator//:verilator"],
+    args = ["$(location @verilator//:verilator)"],
+)

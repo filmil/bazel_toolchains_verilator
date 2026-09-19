@@ -1,0 +1,102 @@
+# Build Verilator once, here, and publish the binary beside the module.
+#
+# The source is the Verilator module in the Bazel Central Registry, so
+# what is published is what `@verilator//:verilator` would have been on
+# the machine that consumed it, built by the same rules rather than by
+# a second recipe that could drift from them.
+#
+# A release carries two assets. The zip is this module's own source,
+# which the registry points at. The tarball is Verilator, which the
+# module's extension fetches at build time and which is the reason the
+# project exists.
+name: release
+
+on:
+  push:
+    tags: ["v*", "verilator-*"]
+  workflow_dispatch:
+    inputs:
+      verilator_version:
+        description: "Verilator version, as the registry names it"
+        required: true
+        default: "5.046"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    outputs:
+      tarball: ${{ steps.name.outputs.file }}
+      sha256: ${{ steps.name.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: true
+          disk-cache: true
+          repository-cache: true
+
+      # The long step, and the only one: everything else here is
+      # copying files about.
+      - name: Build Verilator and package it
+        run: bazel build //package:dist
+
+      - name: Name the artifact after what is in it
+        id: name
+        run: |
+          set -o errexit -o nounset -o pipefail
+          version="${{ github.event.inputs.verilator_version || '5.046' }}"
+          out="verilator-${version}-linux-amd64.tar.gz"
+          cp bazel-bin/package/dist.tar.gz "${out}"
+          echo "file=${out}" >> "${GITHUB_OUTPUT}"
+          echo "sha256=$(sha256sum "${out}" | cut -d' ' -f1)" >> "${GITHUB_OUTPUT}"
+
+      - name: Say what the binary is, so a failure is not silent
+        run: |
+          set -o errexit -o nounset -o pipefail
+          tar tzf "${{ steps.name.outputs.file }}" | head
+          bazel run //package:verilator_version
+
+      - name: The module's own source, which the registry points at
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: thedoctor0/zip-release@0.7.5
+        with:
+          type: "zip"
+          filename: "bazel_toolchains_verilator-${{ github.ref_name }}.zip"
+          exclusions: "*.git* /bazel-*"
+
+      # The checksum goes in the notes as well as in the file, so that
+      # whoever writes it into `versions.bzl` reads it from the release
+      # rather than from a local build that might differ.
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.ref_name }}
+          allowUpdates: true
+          artifacts: "${{ steps.name.outputs.file }},bazel_toolchains_verilator-${{ github.ref_name }}.zip"
+          body: |
+            Verilator for linux/amd64, built from the registry module.
+
+            `${{ steps.name.outputs.file }}`
+            sha256: `${{ steps.name.outputs.sha256 }}`
+
+            Put that checksum in `verilator/versions.bzl` beside the
+            URL, and the module serves this binary.
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verilator-linux-amd64
+          path: ${{ steps.name.outputs.file }}
+
+  publish:
+    needs: build
+    if: startsWith(github.ref_name, 'v')
+    uses: ./.github/workflows/publish.yml
+    with:
+      tag_name: ${{ github.ref_name }}
+    secrets:
+      BCR_PUBLISH_TOKEN: ${{ secrets.BCR_PUBLISH_TOKEN }}

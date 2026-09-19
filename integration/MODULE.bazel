@@ -1,0 +1,24 @@
+"""What the registry runs to decide this module works.
+
+It asks the only question that matters: does a consumer that names
+this module get a Verilator it can run, without Verilator's source
+coming with it.
+
+The three lines below are also the whole of what a consumer writes.
+"""
+
+bazel_dep(name = "bazel_toolchains_verilator", version = "0.1.0")
+local_path_override(
+    module_name = "bazel_toolchains_verilator",
+    path = "..",
+)
+
+verilator_binary = use_extension(
+    "@bazel_toolchains_verilator//verilator:extension.bzl",
+    "verilator_binary",
+)
+use_repo(verilator_binary, "verilator_prebuilt")
+
+register_toolchains("@verilator_prebuilt//:toolchain")
+
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
