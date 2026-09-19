@@ -92,11 +92,3 @@ jobs:
           name: verilator-linux-amd64
           path: ${{ steps.name.outputs.file }}
 
-  publish:
-    needs: build
-    if: startsWith(github.ref_name, 'v')
-    uses: ./.github/workflows/publish.yml
-    with:
-      tag_name: ${{ github.ref_name }}
-    secrets:
-      BCR_PUBLISH_TOKEN: ${{ secrets.BCR_PUBLISH_TOKEN }}
